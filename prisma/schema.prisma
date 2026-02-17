@@ -1,0 +1,82 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  loginId       String    @unique // The fixed ID (e.g. "93021")
+  pinHash       String
+  username      String?
+  avatarUrl     String?
+  role          String    @default("R1") // R1, R2, R3, R4, R5
+  furnaceLevel  Int?
+  power         BigInt?   @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  createdEvents Event[]
+  attending     EventAttendee[]
+  posts         Post[]
+  createdLocations MapLocation[]
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  startTime   DateTime
+  type        String   @default("GATHERING") // WAR, GATHERING, SOCIAL
+  location    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  userId      String
+  creator     User     @relation(fields: [userId], references: [id])
+  attendees   EventAttendee[]
+}
+
+model EventAttendee {
+  id        String   @id @default(cuid())
+  joinedAt  DateTime @default(now())
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id])
+
+  @@unique([userId, eventId])
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  type      String   @default("NEWS") // NEWS, GUIDE
+  minRole   String   @default("R1")
+  createdAt DateTime @default(now())
+  
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+}
+
+model MapLocation {
+  id          String   @id @default(cuid())
+  x           Float
+  y           Float
+  label       String?
+  type        String   @default("RESOURCE") // RESOURCE, ENEMY, FORTRESS, ALLY
+  description String?
+  createdAt   DateTime @default(now())
+  
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+}

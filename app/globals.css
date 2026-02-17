@@ -1,25 +1,103 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-}
+  --color-frost-50: #f0f9ff;
+  --color-frost-100: #e0f2fe;
+  --color-frost-500: #0ea5e9;
+  --color-frost-600: #0284c7;
+  --color-frost-900: #0c4a6e;
+  --color-deep-bg: #0b1120;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-mono: var(--font-jetbrains-mono), monospace;
+
+  --animate-snow: snow 10s linear infinite;
+
+  @keyframes snow {
+    0% {
+      transform: translateY(-10px);
+      opacity: 0;
+    }
+
+    20% {
+      opacity: 1;
+    }
+
+    100% {
+      transform: translateY(100vh);
+      opacity: 0.2;
+    }
   }
 }
 
+:root {
+  --background: #0b1121;
+  /* Deep dark blue-black */
+  --foreground: #e2e8f0;
+  /* Slate-200 */
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
 body {
-  background: var(--background);
+  background: radial-gradient(circle at 50% 0%, #1e293b 0%, #0b1121 70%);
   color: var(--foreground);
   font-family: var(--font-sans);
+  min-height: 100vh;
+}
+
+/* Glassmorphism Utilities */
+.glass-panel {
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.glass-panel-hover {
+  transition: all 0.3s ease;
+}
+
+.glass-panel-hover:hover {
+  background: rgba(30, 41, 59, 0.7);
+  border-color: rgba(56, 189, 248, 0.3);
+  /* frost-blue hint */
+  box-shadow: 0 0 15px rgba(56, 189, 248, 0.1);
+}
+
+/* Frost Button */
+.btn-frost {
+  background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.btn-frost:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+}
+
+/* Status Indicators */
+.status-dot {
+  box-shadow: 0 0 8px currentColor;
 }
