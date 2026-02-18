@@ -1,9 +1,7 @@
 import { auth } from "@/auth";
-import { PrismaClient } from "@prisma/client";
-import { InteractiveMap } from "./interactive-map"; // Client component
+import { prisma } from "@/app/lib/prisma";
+import { InteractiveMap } from "./interactive-map";
 import { redirect } from "next/navigation";
-
-const prisma = new PrismaClient();
 
 export default async function MapPage() {
     const session = await auth();
