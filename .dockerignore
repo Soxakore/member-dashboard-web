@@ -42,3 +42,8 @@ next-env.d.ts
 
 /app/generated/prisma
 .env*.local
+
+
+# sqlite3 database
+dev.db
+prisma/dev.db

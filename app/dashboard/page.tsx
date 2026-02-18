@@ -1,4 +1,4 @@
-import { Shield, Trophy, Users, ArrowUpRight, Calendar, Activity, Flame, Radio } from "lucide-react";
+import { Shield, Trophy, Users, ArrowUpRight, Calendar, Activity, Flame, Radio, Crosshair, BarChart3, Calculator, Swords } from "lucide-react";
 import { getDashboardData } from "../lib/data";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -7,7 +7,18 @@ export default async function DashboardPage() {
     const data = await getDashboardData();
     if (!data) redirect("/login");
 
-    const { user, upcomingEvents, recentPosts } = data;
+    const { user, upcomingEvents, recentPosts, totalMembers, newMembersToday, nextEvent, activeWar } = data;
+
+    // Format relative date for events
+    const formatEventDate = (date: Date) => {
+        const now = new Date();
+        const diff = date.getTime() - now.getTime();
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        if (days === 0) return "Today";
+        if (days === 1) return "Tomorrow";
+        if (days < 7) return `In ${days} days`;
+        return new Date(date).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    };
 
     return (
         <div className="p-8 max-w-[1600px] mx-auto space-y-8">
@@ -16,7 +27,7 @@ export default async function DashboardPage() {
                 <div>
                     <div className="flex items-center gap-3 mb-2">
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/20 uppercase tracking-wider">
-                            Sector 72 • Command Node
+                            Sector 72 &bull; Command Node
                         </span>
                         <span className="flex items-center gap-1.5 text-xs font-bold text-green-500">
                             <span className="relative flex h-2 w-2">
@@ -32,15 +43,18 @@ export default async function DashboardPage() {
                     <p className="text-zinc-400 flex items-center gap-2">
                         Rank: <span className="text-white font-mono font-bold">[{user.role}]</span>
                         <span className="w-1 h-1 rounded-full bg-zinc-600"></span>
-                        Status: <span className="text-emerald-400 shadow-emerald-500/50">Optimal</span>
+                        Furnace Lv. <span className="text-orange-400 font-mono font-bold">{user.furnaceLevel || "N/A"}</span>
                     </p>
                 </div>
 
                 <div className="flex items-center gap-4">
-                    <div className="text-right hidden md:block">
-                        <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold">Next Event</p>
-                        <p className="font-mono text-xl font-bold text-[#38bdf8]">04:23:51</p>
-                    </div>
+                    {nextEvent && (
+                        <div className="text-right hidden md:block">
+                            <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold">Next Event</p>
+                            <p className="font-mono text-sm font-bold text-[#38bdf8]">{nextEvent.title}</p>
+                            <p className="text-xs text-zinc-500">{formatEventDate(new Date(nextEvent.startTime))}</p>
+                        </div>
+                    )}
                     <Link href="/dashboard/events/create" className="btn-frost px-6 py-3 rounded-lg font-bold flex items-center gap-2 transition-transform active:scale-95">
                         <Radio className="h-4 w-4" /> Initiate Ops
                     </Link>
@@ -59,23 +73,23 @@ export default async function DashboardPage() {
                 <StatCard
                     icon={Activity}
                     label="Total Power"
-                    value={(user.power || 0).toLocaleString()}
+                    value={Number(user.power || 0).toLocaleString()}
                     color="text-blue-500"
                     bg="bg-blue-500/10"
                 />
                 <StatCard
                     icon={Trophy}
-                    label="Alliance Rank"
-                    value="#4"
-                    subValue="Top 1%"
+                    label="Upcoming Events"
+                    value={upcomingEvents.length.toString()}
+                    subValue={nextEvent ? `Next: ${nextEvent.type}` : undefined}
                     color="text-amber-500"
                     bg="bg-amber-500/10"
                 />
                 <StatCard
                     icon={Users}
-                    label="Active Members"
-                    value="98/100"
-                    subValue="+2 today"
+                    label="Alliance Members"
+                    value={totalMembers.toString()}
+                    subValue={newMembersToday > 0 ? `+${newMembersToday} today` : undefined}
                     color="text-emerald-500"
                     bg="bg-emerald-500/10"
                 />
@@ -86,27 +100,53 @@ export default async function DashboardPage() {
                 {/* Left Column: Ops & Intel */}
                 <div className="xl:col-span-2 space-y-8">
                     {/* Active War Banner */}
-                    <div className="relative group overflow-hidden rounded-2xl border border-[#38bdf8]/30">
-                        <div className="absolute inset-0 bg-gradient-to-r from-[#0c4a6e] to-[#0f172a] opacity-90"></div>
-                        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1547891654-e66ed7ebb968?q=80&w=2940&auto=format&fit=crop')] bg-cover bg-center mix-blend-overlay opacity-40"></div>
-
-                        <div className="relative p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                            <div>
-                                <div className="flex items-center gap-2 mb-3">
-                                    <span className="px-2 py-0.5 bg-red-500 text-white text-[10px] font-bold uppercase tracking-wider rounded animate-pulse">
-                                        Live Combat
-                                    </span>
-                                    <span className="text-[#38bdf8] text-xs font-mono">OP-ALPHA-7</span>
+                    {activeWar ? (
+                        <div className="relative group overflow-hidden rounded-2xl border border-red-500/30">
+                            <div className="absolute inset-0 bg-gradient-to-r from-[#0c4a6e] to-[#0f172a] opacity-90"></div>
+                            <div className="relative p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <span className="px-2 py-0.5 bg-red-500 text-white text-[10px] font-bold uppercase tracking-wider rounded animate-pulse">
+                                            Active War
+                                        </span>
+                                        <span className="text-zinc-400 text-xs font-mono">
+                                            {new Date(activeWar.startTime).toLocaleDateString()}
+                                        </span>
+                                    </div>
+                                    <h3 className="text-3xl font-bold text-white mb-2">{activeWar.title}</h3>
+                                    <p className="text-blue-200 max-w-lg">
+                                        {activeWar.description || `${activeWar._count.attendees} operatives registered. Check events for details.`}
+                                    </p>
                                 </div>
-                                <h3 className="text-3xl font-bold text-white mb-2">Operation: Crimson Fall</h3>
-                                <p className="text-blue-200 max-w-lg">
-                                    Targeting high-value fortress assets in Sector 4. All R3+ members required to mobilize immediately.
-                                </p>
+                                <Link href="/dashboard/events" className="whitespace-nowrap bg-white text-[#0c4a6e] hover:bg-blue-50 px-6 py-3 rounded-lg font-bold shadow-lg transition-colors flex items-center gap-2">
+                                    View Details <ArrowUpRight className="h-4 w-4" />
+                                </Link>
                             </div>
-                            <button className="whitespace-nowrap bg-white text-[#0c4a6e] hover:bg-blue-50 px-6 py-3 rounded-lg font-bold shadow-lg transition-colors flex items-center gap-2">
-                                Join Rally <ArrowUpRight className="h-4 w-4" />
-                            </button>
                         </div>
+                    ) : (
+                        <div className="relative overflow-hidden rounded-2xl border border-emerald-500/20">
+                            <div className="absolute inset-0 bg-gradient-to-r from-emerald-900/30 to-[#0f172a] opacity-90"></div>
+                            <div className="relative p-6 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <Shield className="h-8 w-8 text-emerald-400" />
+                                    <div>
+                                        <p className="text-emerald-400 font-bold">No Active Wars</p>
+                                        <p className="text-sm text-zinc-400">Alliance territory secure. Use this time to prepare.</p>
+                                    </div>
+                                </div>
+                                <Link href="/dashboard/tools/formation-builder" className="text-sm text-emerald-400 hover:text-white transition-colors px-4 py-2 border border-emerald-500/20 rounded-lg hover:bg-white/5">
+                                    Prep Formations
+                                </Link>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Quick Tools Grid */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <ToolCard href="/dashboard/tools/rally-tracker" icon={Crosshair} label="Rally Tracker" color="text-rose-400" bg="bg-rose-500/10" />
+                        <ToolCard href="/dashboard/tools/troop-stats" icon={BarChart3} label="Troop Stats" color="text-emerald-400" bg="bg-emerald-500/10" />
+                        <ToolCard href="/dashboard/tools/rss-calculator" icon={Calculator} label="RSS Calculator" color="text-amber-400" bg="bg-amber-500/10" />
+                        <ToolCard href="/dashboard/tools/formation-builder" icon={Swords} label="Formations" color="text-indigo-400" bg="bg-indigo-500/10" />
                     </div>
 
                     {/* Intel Feed */}
@@ -153,14 +193,14 @@ export default async function DashboardPage() {
                             {upcomingEvents.length === 0 ? (
                                 <p className="text-zinc-500 text-sm">No scheduled ops.</p>
                             ) : (
-                                upcomingEvents.map((event, i) => (
+                                upcomingEvents.map((event) => (
                                     <div key={event.id} className="relative pl-6 py-3 border-l-2 border-[#38bdf8]/20 last:pb-0 hover:border-[#38bdf8] transition-colors group">
                                         <div className="absolute -left-[5px] top-5 w-2.5 h-2.5 rounded-full bg-[#0b1120] border-2 border-[#38bdf8] group-hover:bg-[#38bdf8] transition-colors"></div>
                                         <p className="text-xs font-bold text-[#38bdf8] mb-0.5 uppercase tracking-wide">
-                                            {event.type} • {new Date(event.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            {event.type} &bull; {new Date(event.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </p>
                                         <h4 className="font-bold text-white leading-tight">{event.title}</h4>
-                                        <p className="text-xs text-zinc-500 mt-1">Tomorrow</p>
+                                        <p className="text-xs text-zinc-500 mt-1">{formatEventDate(new Date(event.startTime))}</p>
                                     </div>
                                 ))
                             )}
@@ -172,13 +212,16 @@ export default async function DashboardPage() {
 
                     {/* Compact Profile/Resources */}
                     <div className="glass-panel p-6 rounded-2xl">
-                        <h3 className="font-bold mb-4 text-zinc-400 text-sm uppercase tracking-wider">Resource stockpile</h3>
+                        <h3 className="font-bold mb-4 text-zinc-400 text-sm uppercase tracking-wider">Resource Stockpile</h3>
                         <div className="space-y-3">
                             <ResourceBar label="Meat" value="12.5M" progress={80} color="bg-orange-500" />
                             <ResourceBar label="Wood" value="8.2M" progress={65} color="bg-amber-600" />
                             <ResourceBar label="Coal" value="4.1M" progress={40} color="bg-zinc-500" />
                             <ResourceBar label="Iron" value="1.2M" progress={20} color="bg-slate-400" />
                         </div>
+                        <Link href="/dashboard/tools/rss-calculator" className="block mt-4 text-center text-xs font-bold text-zinc-500 hover:text-[#38bdf8] transition-colors">
+                            Open RSS Calculator &rarr;
+                        </Link>
                     </div>
                 </div>
             </div>
@@ -203,7 +246,21 @@ function StatCard({ icon: Icon, label, value, subValue, color, bg }: any) {
                 </div>
             </div>
         </div>
-    )
+    );
+}
+
+function ToolCard({ href, icon: Icon, label, color, bg }: any) {
+    return (
+        <Link
+            href={href}
+            className="glass-panel p-4 rounded-xl hover:bg-white/5 transition-all group text-center"
+        >
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mx-auto mb-2 ${bg} ${color} group-hover:scale-110 transition-transform`}>
+                <Icon className="w-5 h-5" />
+            </div>
+            <p className="text-xs font-bold text-zinc-400 group-hover:text-white transition-colors">{label}</p>
+        </Link>
+    );
 }
 
 function ResourceBar({ label, value, progress, color }: any) {
@@ -217,8 +274,7 @@ function ResourceBar({ label, value, progress, color }: any) {
                 <div className={`h-full ${color}`} style={{ width: `${progress}%` }}></div>
             </div>
         </div>
-    )
+    );
 }
 
-// Force dynamic rendering
 export const dynamic = 'force-dynamic';

@@ -1,16 +1,29 @@
-import NextAuth, { User } from "next-auth";
+import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
 const prisma = new PrismaClient();
+const LOGIN_ID_ALIASES: Record<string, string> = {
+    ADMIN: "ADMIN00001",
+};
 
 async function getUser(loginId: string): Promise<any> {
     const user = await prisma.user.findUnique({
         where: { loginId },
     });
     return user;
+}
+
+function resolveLoginCandidates(rawLoginId: string): string[] {
+    const normalized = rawLoginId.trim();
+    if (!normalized) return [];
+
+    const upper = normalized.toUpperCase();
+    const alias = LOGIN_ID_ALIASES[upper];
+
+    return [...new Set([normalized, upper, alias].filter(Boolean) as string[])];
 }
 
 const result = NextAuth({
@@ -22,22 +35,22 @@ const result = NextAuth({
                 pin: { label: "PIN", type: "password" },
             },
             authorize: async (credentials) => {
-                console.error("DEBUG: authorize called with:", JSON.stringify(credentials));
                 const parsedCredentials = z
-                    .object({ loginId: z.string(), pin: z.string().min(4) })
+                    .object({ loginId: z.string().min(1), pin: z.string().min(4) })
                     .safeParse(credentials);
 
                 if (parsedCredentials.success) {
                     const { loginId, pin } = parsedCredentials.data;
-                    console.error("DEBUG: parsed success. loginId:", loginId);
-
-                    const user = await getUser(loginId);
-                    console.error("DEBUG: user found:", user ? user.loginId : "null");
+                    const loginCandidates = resolveLoginCandidates(loginId);
+                    let user: any = null;
+                    for (const candidate of loginCandidates) {
+                        user = await getUser(candidate);
+                        if (user) break;
+                    }
 
                     if (!user) return null;
 
                     const passwordsMatch = await bcrypt.compare(pin, user.pinHash);
-                    console.error("DEBUG: password match:", passwordsMatch);
 
                     if (passwordsMatch) {
                         const userObj = {
@@ -49,11 +62,7 @@ const result = NextAuth({
                         };
                         return userObj;
                     }
-                } else {
-                    console.error("DEBUG: parsing failed", parsedCredentials.error);
                 }
-
-                console.error("Invalid credentials log");
                 return null;
             },
         }),
@@ -87,18 +96,5 @@ export const { handlers, signIn, signOut } = result;
 
 export const auth = async (...args: any[]) => {
     const session = await (result.auth as any)(...args);
-    // TEMPORARY: Global Auto-login as Admin
-    if (!session?.user) {
-        return {
-            user: {
-                id: "admin-bypass",
-                name: "Commander",
-                email: "712147333", // Maps to loginId
-                image: null,
-                role: "R5"
-            },
-            expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-        } as any;
-    }
     return session;
 };

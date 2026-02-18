@@ -1,7 +1,5 @@
-import { PrismaClient } from "@prisma/client";
 import { auth } from "@/auth";
-
-const prisma = new PrismaClient(); // In prod, use a singleton pattern to avoid connection limits
+import { prisma } from "./prisma";
 
 export async function getDashboardData() {
     const session = await auth();
@@ -52,9 +50,38 @@ export async function getDashboardData() {
         }
     });
 
+    // Member stats
+    const totalMembers = await prisma.user.count();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const newMembersToday = await prisma.user.count({
+        where: { createdAt: { gte: todayStart } },
+    });
+
+    // Next event countdown
+    const nextEvent = upcomingEvents[0] || null;
+
+    // Active war (most recent WAR event happening now or in near future)
+    const activeWar = await prisma.event.findFirst({
+        where: {
+            type: "WAR",
+            startTime: {
+                gte: new Date(Date.now() - 24 * 60 * 60 * 1000), // within last 24h
+            },
+        },
+        orderBy: { startTime: "asc" },
+        include: {
+            _count: { select: { attendees: true } },
+        },
+    });
+
     return {
         user,
         upcomingEvents,
         recentPosts,
+        totalMembers,
+        newMembersToday,
+        nextEvent,
+        activeWar,
     };
 }

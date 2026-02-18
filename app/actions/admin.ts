@@ -1,11 +1,9 @@
 "use server";
 
 import { auth } from "@/auth";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/app/lib/prisma";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
-
-const prisma = new PrismaClient();
 
 function generateRandomPin() {
     return Math.floor(1000 + Math.random() * 9000).toString(); // 4 digit PIN

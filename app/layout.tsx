@@ -5,8 +5,11 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Member Dashboard",
-  description: "Manage your tasks and schedule with ease.",
+  title: {
+    default: "Warriors Alliance",
+    template: "%s | Warriors Alliance",
+  },
+  description: "Whiteout Survival alliance management platform - coordinate operations, track troops, and dominate.",
 };
 
 export default function RootLayout({
