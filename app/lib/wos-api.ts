@@ -89,12 +89,16 @@ export async function lookupPlayer(fid: string): Promise<PlayerInfo | null> {
       if (json.code !== 0 || !json.data) continue;
 
       const data = json.data;
+      // stove_lv_content can be a number (furnace level) or a URL string — only use if it's a URL
+      const stoveLvContent = typeof data.stove_lv_content === "string" && data.stove_lv_content.startsWith("http")
+        ? data.stove_lv_content
+        : "";
       return {
         nickname: data.nickname || "Unknown",
         furnaceLv: data.stove_lv || data.furnace_lv || 1,
         furnaceLevelName: getFurnaceLevelName(data.stove_lv || data.furnace_lv || 1),
-        kid: data.kid || "Unknown",
-        avatarUrl: data.stove_lv_content || data.avatar_image || "",
+        kid: String(data.kid || "Unknown"),
+        avatarUrl: data.avatar_image || stoveLvContent || "",
         stoveLv: data.stove_lv || 1,
       };
     } catch {
