@@ -164,6 +164,110 @@ export async function redeemCodeForPlayer(codeId: string, playerFidId: string) {
   return { error: "Failed after max retries" };
 }
 
+/**
+ * Admin action: auto-redeem all active codes for ALL linked alliance members
+ */
+export async function autoRedeemForAllMembers() {
+  const session = await auth();
+  if (!session?.user?.email) return { error: "Unauthorized" };
+
+  const user = await prisma.user.findUnique({ where: { loginId: session.user.email } });
+  if (!user || (user.role !== "R4" && user.role !== "R5"))
+    return { error: "Insufficient permissions (R4/R5 required)" };
+
+  const activeCodes = await prisma.giftCode.findMany({ where: { status: "ACTIVE" } });
+  if (activeCodes.length === 0) return { error: "No active codes to redeem" };
+
+  const allFids = await prisma.playerFID.findMany({
+    select: { id: true, fid: true, nickname: true },
+  });
+  if (allFids.length === 0) return { error: "No linked FIDs in the alliance" };
+
+  let redeemed = 0;
+  let failed = 0;
+  let skipped = 0;
+  const results: Array<{ fid: string; nickname: string | null; code: string; status: string; message: string }> = [];
+
+  for (const giftCode of activeCodes) {
+    const refreshed = await prisma.giftCode.findUnique({ where: { id: giftCode.id } });
+    if (refreshed && refreshed.status !== "ACTIVE") continue;
+
+    for (const playerFid of allFids) {
+      const existing = await prisma.giftCodeRedemption.findUnique({
+        where: { giftCodeId_playerFidId: { giftCodeId: giftCode.id, playerFidId: playerFid.id } },
+      });
+      if (existing) { skipped++; continue; }
+
+      const MAX_RETRIES = 3;
+      let success = false;
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          await wosApiLimiter.acquire();
+          const captchaData = await fetchCaptcha(playerFid.fid);
+          if (!captchaData) continue;
+          const solution = await solveCaptcha(captchaData.img);
+          if (!solution) continue;
+          await wosApiLimiter.acquire();
+          const result = await redeemGiftCode(playerFid.fid, giftCode.code, solution.text);
+          if (result.status === "CAPTCHA_WRONG" && attempt < MAX_RETRIES - 1) continue;
+
+          const finalStatus = result.success ? "SUCCESS" : result.status;
+          await prisma.giftCodeRedemption.create({
+            data: { giftCodeId: giftCode.id, playerFidId: playerFid.id, status: finalStatus, message: result.message },
+          });
+          if (result.success) redeemed++; else failed++;
+          if (result.status === "EXPIRED") await prisma.giftCode.update({ where: { id: giftCode.id }, data: { status: "EXPIRED" } });
+          else if (result.status === "INVALID") await prisma.giftCode.update({ where: { id: giftCode.id }, data: { status: "INVALID" } });
+          results.push({ fid: playerFid.fid, nickname: playerFid.nickname, code: giftCode.code, status: finalStatus, message: result.message });
+          success = true;
+          break;
+        } catch { continue; }
+      }
+      if (!success) { failed++; results.push({ fid: playerFid.fid, nickname: playerFid.nickname, code: giftCode.code, status: "FAILED", message: "Max retries" }); }
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+  }
+
+  // Store log
+  if (allFids.length > 0) {
+    await prisma.playerChangeLog.create({
+      data: {
+        changeType: "GIFT_CODE_AUTO_REDEEM",
+        oldValue: `${user.username || user.loginId} triggered`,
+        newValue: JSON.stringify({ redeemed, failed, skipped, total: results.length, results: results.slice(0, 50) }),
+        playerFidId: allFids[0].id,
+      },
+    });
+  }
+
+  revalidatePath("/dashboard/tools/gift-codes");
+  return { success: true, redeemed, failed, skipped, memberCount: allFids.length, results };
+}
+
+/**
+ * Get auto-redeem logs for notification feed
+ */
+export async function getAutoRedeemLogs(limit = 10) {
+  const session = await auth();
+  if (!session?.user?.email) return { error: "Unauthorized" };
+
+  const logs = await prisma.playerChangeLog.findMany({
+    where: { changeType: "GIFT_CODE_AUTO_REDEEM" },
+    orderBy: { detectedAt: "desc" },
+    take: limit,
+  });
+
+  return {
+    success: true,
+    logs: logs.map((l) => ({
+      id: l.id,
+      triggeredBy: l.oldValue,
+      data: (() => { try { return JSON.parse(l.newValue || "{}"); } catch { return {}; } })(),
+      timestamp: l.detectedAt.toISOString(),
+    })),
+  };
+}
+
 export async function redeemAllForPlayer(playerFidId: string) {
   const session = await auth();
   if (!session?.user?.email) return { error: "Unauthorized" };

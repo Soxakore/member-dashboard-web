@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { CalendarClock, Clock, Timer, ChevronRight } from "lucide-react";
+import { CalendarClock, Clock, ChevronRight, Globe, Users, Shield } from "lucide-react";
 
 interface EventConfig {
   name: string;
@@ -31,14 +31,12 @@ const EVENT_CONFIG: Record<string, EventConfig> = {
 
 function calcNextOccurrence(config: EventConfig, now: Date): Date | null {
   if (config.scheduleType === "custom") return null;
-
   if (config.scheduleType === "daily") {
     const next = new Date(now);
     next.setUTCHours(0, 0, 0, 0);
     if (next.getTime() <= now.getTime()) next.setUTCDate(next.getUTCDate() + 1);
     return next;
   }
-
   if (config.scheduleType === "global_weekly") {
     const next = new Date(now);
     const dow = next.getUTCDay();
@@ -48,7 +46,6 @@ function calcNextOccurrence(config: EventConfig, now: Date): Date | null {
     next.setUTCHours(0, 0, 0, 0);
     return next;
   }
-
   if (!config.referenceDate) return null;
   const ref = new Date(config.referenceDate + "T00:00:00Z");
   const cycle = (config.cycleWeeks || 4) * 7;
@@ -73,18 +70,32 @@ function formatCountdown(ms: number): string {
 }
 
 function getUrgencyColor(ms: number): string {
-  if (ms < 3600000) return "text-red-400"; // < 1h
-  if (ms < 86400000) return "text-amber-400"; // < 1d
-  if (ms < 259200000) return "text-yellow-400"; // < 3d
+  if (ms < 3600000) return "text-red-400";
+  if (ms < 86400000) return "text-amber-400";
+  if (ms < 259200000) return "text-yellow-400";
   return "text-zinc-400";
+}
+
+function getUrgencyBorder(ms: number): string {
+  if (ms < 3600000) return "border-red-500/30 bg-red-500/5";
+  if (ms < 86400000) return "border-amber-500/20 bg-amber-500/5";
+  return "border-white/5";
 }
 
 export default function EventSchedulePage() {
   const [now, setNow] = useState(new Date());
+  const [allianceInfo, setAllianceInfo] = useState<{ kingdom: string; memberCount: number } | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/alliance-info")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data) setAllianceInfo(data); })
+      .catch(() => {});
   }, []);
 
   const events = useMemo(() => {
@@ -96,6 +107,15 @@ export default function EventSchedulePage() {
     list.sort((a, b) => a.ms - b.ms);
     return list;
   }, [now]);
+
+  const currentPhase = useMemo(() => {
+    const svs = events.find((e) => e.config.name.includes("SvS"));
+    const castle = events.find((e) => e.config.name === "Castle Battle");
+    if (svs && svs.ms < 86400000 * 2) return { phase: "SvS Prep", color: "text-red-400", emoji: "🛡️", tip: "Shield up! Protect resources and troops." };
+    if (castle && castle.ms < 86400000 * 2) return { phase: "Castle Prep", color: "text-amber-400", emoji: "⚔️", tip: "Rally your troops for Castle Battle!" };
+    if (svs && svs.ms < 86400000 * 5) return { phase: "Pre-SvS", color: "text-yellow-400", emoji: "📦", tip: "Save speedups and resources for SvS scoring." };
+    return { phase: "Peace Time", color: "text-green-400", emoji: "🌿", tip: "Build, research, and grow your strength." };
+  }, [events]);
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-8">
@@ -111,9 +131,49 @@ export default function EventSchedulePage() {
         </p>
       </header>
 
+      {/* Alliance Status Bar */}
+      <div className="glass-panel rounded-2xl p-5 flex flex-wrap items-center gap-6">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">{currentPhase.emoji}</span>
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Current Phase</p>
+            <p className={`text-lg font-bold ${currentPhase.color}`}>{currentPhase.phase}</p>
+          </div>
+        </div>
+
+        <div className="h-8 w-px bg-white/10 hidden sm:block" />
+
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <Shield className="h-4 w-4 text-zinc-500 shrink-0" />
+          <p className="text-sm text-zinc-400 truncate">{currentPhase.tip}</p>
+        </div>
+
+        {allianceInfo && (
+          <>
+            <div className="h-8 w-px bg-white/10 hidden sm:block" />
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Globe className="h-4 w-4 text-blue-400" />
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-zinc-500">State</p>
+                  <p className="text-sm font-bold text-blue-400">#{allianceInfo.kingdom}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-cyan-400" />
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-zinc-500">Linked</p>
+                  <p className="text-sm font-bold text-cyan-400">{allianceInfo.memberCount}</p>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
       {/* Next Event Highlight */}
       {events[0]?.nextDate && (
-        <div className="glass-panel rounded-2xl p-6 border border-teal-500/20 bg-gradient-to-r from-teal-500/5 to-transparent">
+        <div className={`glass-panel rounded-2xl p-6 border ${getUrgencyBorder(events[0].ms)}`}>
           <p className="text-xs uppercase tracking-widest text-teal-400 font-bold mb-2">Next Event</p>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -140,7 +200,7 @@ export default function EventSchedulePage() {
         {events.map(({ config, nextDate, ms }) => (
           <div
             key={config.name}
-            className="glass-panel rounded-xl p-4 flex items-center gap-4 hover:bg-white/5 transition-all group"
+            className={`glass-panel rounded-xl p-4 flex items-center gap-4 hover:bg-white/5 transition-all group border ${nextDate && ms < 86400000 ? getUrgencyBorder(ms) : "border-transparent"}`}
           >
             <span className="text-2xl w-10 text-center">{config.emoji}</span>
             <div className="flex-1 min-w-0">
@@ -189,6 +249,7 @@ export default function EventSchedulePage() {
         <ul className="text-zinc-400 text-sm space-y-1 list-disc list-inside">
           <li>All times are in UTC. Adjust for your local timezone.</li>
           <li>Bear Trap times are set by your alliance — check with leadership.</li>
+          <li>Current phase updates automatically based on upcoming SvS/Castle events.</li>
           <li>Available time slots show possible start times for events with multiple sessions.</li>
           <li>Schedules are based on reference dates from the WOS community bot data.</li>
         </ul>

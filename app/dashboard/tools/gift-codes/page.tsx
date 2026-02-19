@@ -58,7 +58,7 @@ export default async function GiftCodesPage() {
           <h1 className="text-3xl font-bold tracking-tight">Gift Codes</h1>
         </div>
         <p className="text-zinc-400 text-sm">
-          Redeem WOS gift codes for your linked accounts
+          Auto-sync &amp; redeem WOS gift codes for all alliance members
         </p>
       </header>
 

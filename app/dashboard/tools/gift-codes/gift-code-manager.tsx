@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Gift, Plus, RefreshCw, Zap, CheckCircle, XCircle, Clock, Loader2, AlertCircle } from "lucide-react";
-import { syncGiftCodes, addManualCode, redeemCodeForPlayer, redeemAllForPlayer } from "@/app/actions/giftcodes";
+import { Gift, Plus, RefreshCw, Zap, CheckCircle, XCircle, Clock, Loader2, AlertCircle, Users, History } from "lucide-react";
+import { syncGiftCodes, addManualCode, redeemCodeForPlayer, redeemAllForPlayer, autoRedeemForAllMembers, getAutoRedeemLogs } from "@/app/actions/giftcodes";
 
 interface GiftCodeData {
   id: string;
@@ -48,9 +48,12 @@ export function GiftCodeManager({
   const [isPending, startTransition] = useTransition();
   const [syncing, setSyncing] = useState(false);
   const [redeemingAll, setRedeemingAll] = useState(false);
+  const [redeemingAllMembers, setRedeemingAllMembers] = useState(false);
   const [redeemingCode, setRedeemingCode] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [selectedFid, setSelectedFid] = useState(userFids[0]?.id || "");
+  const [redeemLogs, setRedeemLogs] = useState<Array<{ id: string; triggeredBy: string | null; data: any; timestamp: string }>>([]);
+  const [showLogs, setShowLogs] = useState(false);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -88,6 +91,22 @@ export function GiftCodeManager({
     setRedeemingAll(false);
     if (result.error) setMessage(`Error: ${result.error}`);
     else setMessage(`Done! Redeemed: ${result.redeemed}, Failed: ${result.failed}, Skipped: ${result.skipped}`);
+  };
+
+  const handleRedeemAllMembers = async () => {
+    setRedeemingAllMembers(true);
+    setMessage("");
+    const result = await autoRedeemForAllMembers();
+    setRedeemingAllMembers(false);
+    if (result.error) setMessage(`Error: ${result.error}`);
+    else setMessage(`Alliance redeem complete! ✅ ${result.redeemed} redeemed, ❌ ${result.failed} failed, ⏭ ${result.skipped} skipped across ${result.memberCount} members`);
+  };
+
+  const handleShowLogs = async () => {
+    if (showLogs) { setShowLogs(false); return; }
+    const result = await getAutoRedeemLogs(10);
+    if (result.logs) setRedeemLogs(result.logs);
+    setShowLogs(true);
   };
 
   const activeCodes = codes.filter((c) => c.status === "ACTIVE");
@@ -148,6 +167,27 @@ export function GiftCodeManager({
             </button>
           )}
         </div>
+
+        {/* Admin: Redeem for All Members + Logs */}
+        {isAdmin && (
+          <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-white/10">
+            <button
+              onClick={handleRedeemAllMembers}
+              disabled={redeemingAllMembers || activeCodes.length === 0}
+              className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 rounded-lg text-sm font-bold hover:from-amber-400 hover:to-orange-500 transition-all flex items-center gap-2 disabled:opacity-50"
+            >
+              {redeemingAllMembers ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
+              Redeem for All Members
+            </button>
+            <button
+              onClick={handleShowLogs}
+              className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm font-medium hover:bg-white/10 transition-all flex items-center gap-2"
+            >
+              <History className="h-4 w-4 text-zinc-400" />
+              {showLogs ? "Hide" : "Show"} Redeem History
+            </button>
+          </div>
+        )}
 
         {/* Add Manual Code (Admin) */}
         {isAdmin && (
@@ -238,6 +278,58 @@ export function GiftCodeManager({
           <Gift className="h-12 w-12 text-zinc-600 mx-auto mb-4" />
           <p className="text-zinc-400 text-lg font-bold mb-2">No gift codes yet</p>
           <p className="text-zinc-500 text-sm">Click &quot;Sync Codes&quot; to fetch the latest codes from the community API.</p>
+        </div>
+      )}
+
+      {/* Auto-Redeem Logs */}
+      {showLogs && redeemLogs.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest px-1">
+            Auto-Redeem History
+          </h3>
+          {redeemLogs.map((log) => (
+            <div key={log.id} className="glass-panel rounded-xl p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <History className="h-4 w-4 text-amber-400" />
+                  <span className="text-sm font-bold">
+                    {log.triggeredBy || "Auto-cron"}
+                  </span>
+                </div>
+                <span className="text-xs text-zinc-500">
+                  {new Date(log.timestamp).toLocaleString()}
+                </span>
+              </div>
+              {log.data && (
+                <div className="flex gap-4 text-xs">
+                  <span className="text-green-400">✅ {log.data.redeemed || 0} redeemed</span>
+                  <span className="text-red-400">❌ {log.data.failed || 0} failed</span>
+                  <span className="text-zinc-500">⏭ {log.data.skipped || 0} skipped</span>
+                </div>
+              )}
+              {log.data?.results && log.data.results.length > 0 && (
+                <div className="mt-2 max-h-40 overflow-y-auto space-y-1">
+                  {log.data.results.slice(0, 20).map((r: any, i: number) => (
+                    <div key={i} className="flex items-center gap-2 text-[11px] text-zinc-400">
+                      <span className={r.status === "SUCCESS" ? "text-green-400" : "text-red-400"}>
+                        {r.status === "SUCCESS" ? "✅" : "❌"}
+                      </span>
+                      <span className="font-mono">{r.code}</span>
+                      <span className="text-zinc-600">→</span>
+                      <span>{r.nickname || r.fid}</span>
+                      <span className="text-zinc-600">{r.message}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showLogs && redeemLogs.length === 0 && (
+        <div className="glass-panel rounded-xl p-6 text-center">
+          <p className="text-zinc-500 text-sm">No auto-redeem history yet</p>
         </div>
       )}
     </div>
