@@ -22,10 +22,13 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  createdEvents Event[]
-  attending     EventAttendee[]
-  posts         Post[]
+  createdEvents    Event[]
+  attending        EventAttendee[]
+  posts            Post[]
   createdLocations MapLocation[]
+  playerFids       PlayerFID[]
+  ministerAssignments MinisterSlot[] @relation("MinisterAssigner")
+  attendanceSessions  AttendanceSession[] @relation("AttendanceCreator")
 }
 
 model Event {
@@ -37,7 +40,7 @@ model Event {
   location    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   userId      String
   creator     User     @relation(fields: [userId], references: [id])
   attendees   EventAttendee[]
@@ -46,10 +49,10 @@ model Event {
 model EventAttendee {
   id        String   @id @default(cuid())
   joinedAt  DateTime @default(now())
-  
+
   userId    String
   user      User     @relation(fields: [userId], references: [id])
-  
+
   eventId   String
   event     Event    @relation(fields: [eventId], references: [id])
 
@@ -63,7 +66,7 @@ model Post {
   type      String   @default("NEWS") // NEWS, GUIDE
   minRole   String   @default("R1")
   createdAt DateTime @default(now())
-  
+
   authorId  String
   author    User     @relation(fields: [authorId], references: [id])
 }
@@ -76,7 +79,114 @@ model MapLocation {
   type        String   @default("RESOURCE") // RESOURCE, ENEMY, FORTRESS, ALLY
   description String?
   createdAt   DateTime @default(now())
-  
+
   createdById String
   createdBy   User     @relation(fields: [createdById], references: [id])
+}
+
+// ========== WOS Bot Integration Models ==========
+
+model PlayerFID {
+  id         String    @id @default(cuid())
+  fid        String    @unique
+  nickname   String?
+  furnaceLv  Int?
+  kid        String?
+  avatarUrl  String?
+  lastChecked DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+
+  giftRedemptions   GiftCodeRedemption[]
+  changeLogs        PlayerChangeLog[]
+  attendanceRecords AttendanceRecord[]
+  ministerSlots     MinisterSlot[]
+}
+
+model GiftCode {
+  id           String    @id @default(cuid())
+  code         String    @unique
+  source       String?   // "api", "manual"
+  status       String    @default("ACTIVE") // ACTIVE, EXPIRED, INVALID
+  discoveredAt DateTime  @default(now())
+  expiresAt    DateTime?
+
+  redemptions  GiftCodeRedemption[]
+}
+
+model GiftCodeRedemption {
+  id         String   @id @default(cuid())
+  status     String   // SUCCESS, USED, EXPIRED, INVALID, FAILED
+  message    String?
+  redeemedAt DateTime @default(now())
+
+  giftCodeId  String
+  giftCode    GiftCode  @relation(fields: [giftCodeId], references: [id])
+
+  playerFidId String
+  playerFid   PlayerFID @relation(fields: [playerFidId], references: [id])
+
+  @@unique([giftCodeId, playerFidId])
+}
+
+model MinisterSlot {
+  id         String   @id @default(cuid())
+  position   String   // CONSTRUCTION, RESEARCH, TRAINING
+  dayOfWeek  Int      // 0=Sunday ... 6=Saturday
+  timeSlot   String   // "00:00-04:00", "04:00-08:00", etc.
+  weekStart  DateTime // Monday of the week this slot belongs to
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  playerFidId  String?
+  playerFid    PlayerFID? @relation(fields: [playerFidId], references: [id])
+
+  assignedById String?
+  assignedBy   User?   @relation("MinisterAssigner", fields: [assignedById], references: [id])
+
+  @@unique([position, dayOfWeek, timeSlot, weekStart])
+}
+
+model AttendanceSession {
+  id        String    @id @default(cuid())
+  eventName String
+  eventType String    // FOUNDRY, CANYON_CLASH, CRAZY_JOE, BEAR_TRAP, FORTRESS, CASTLE, OTHER
+  legion    String?   // "1", "2", or null
+  status    String    @default("OPEN") // OPEN, CLOSED
+  startedAt DateTime  @default(now())
+  closedAt  DateTime?
+
+  createdById String
+  createdBy   User    @relation("AttendanceCreator", fields: [createdById], references: [id])
+
+  records   AttendanceRecord[]
+}
+
+model AttendanceRecord {
+  id         String   @id @default(cuid())
+  points     BigInt   @default(0)
+  note       String?
+  recordedAt DateTime @default(now())
+
+  sessionId   String
+  session     AttendanceSession @relation(fields: [sessionId], references: [id])
+
+  playerFidId String
+  playerFid   PlayerFID @relation(fields: [playerFidId], references: [id])
+
+  @@unique([sessionId, playerFidId])
+}
+
+model PlayerChangeLog {
+  id         String   @id @default(cuid())
+  changeType String   // FURNACE, NICKNAME, ALLIANCE_TRANSFER
+  oldValue   String?
+  newValue   String?
+  detectedAt DateTime @default(now())
+
+  playerFidId String
+  playerFid   PlayerFID @relation(fields: [playerFidId], references: [id])
 }

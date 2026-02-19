@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
+  serverExternalPackages: ['onnxruntime-node', 'sharp'],
 };
 
 export default nextConfig;

@@ -18,6 +18,12 @@ import {
     ShieldCheck,
     Menu,
     X,
+    Search,
+    Gift,
+    CalendarClock,
+    Crown,
+    ClipboardCheck,
+    Activity,
 } from "lucide-react";
 
 const NAV_SECTIONS = [
@@ -37,6 +43,17 @@ const NAV_SECTIONS = [
             { href: "/dashboard/tools/troop-stats", icon: BarChart3, label: "Troop Stats", color: "text-emerald-400" },
             { href: "/dashboard/tools/rss-calculator", icon: Calculator, label: "RSS Calculator", color: "text-amber-400" },
             { href: "/dashboard/tools/formation-builder", icon: Swords, label: "Formation Builder", color: "text-indigo-400" },
+        ],
+    },
+    {
+        label: "Intel",
+        items: [
+            { href: "/dashboard/tools/player-lookup", icon: Search, label: "Player Lookup", color: "text-cyan-400" },
+            { href: "/dashboard/tools/gift-codes", icon: Gift, label: "Gift Codes", color: "text-purple-400" },
+            { href: "/dashboard/tools/event-schedule", icon: CalendarClock, label: "Event Schedule", color: "text-teal-400" },
+            { href: "/dashboard/tools/ministers", icon: Crown, label: "Ministers", color: "text-yellow-400" },
+            { href: "/dashboard/tools/attendance", icon: ClipboardCheck, label: "Attendance", color: "text-sky-400" },
+            { href: "/dashboard/tools/activity-tracker", icon: Activity, label: "Activity Tracker", color: "text-orange-400" },
         ],
     },
     {

@@ -1,4 +1,4 @@
-import { Shield, Trophy, Users, ArrowUpRight, Calendar, Activity, Flame, Radio, Crosshair, BarChart3, Calculator, Swords } from "lucide-react";
+import { Shield, Trophy, Users, ArrowUpRight, Calendar, Activity, Flame, Radio, Crosshair, BarChart3, Calculator, Swords, Search, Gift, CalendarClock, Crown, ClipboardCheck } from "lucide-react";
 import { getDashboardData } from "../lib/data";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -142,11 +142,17 @@ export default async function DashboardPage() {
                     )}
 
                     {/* Quick Tools Grid */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                         <ToolCard href="/dashboard/tools/rally-tracker" icon={Crosshair} label="Rally Tracker" color="text-rose-400" bg="bg-rose-500/10" />
                         <ToolCard href="/dashboard/tools/troop-stats" icon={BarChart3} label="Troop Stats" color="text-emerald-400" bg="bg-emerald-500/10" />
                         <ToolCard href="/dashboard/tools/rss-calculator" icon={Calculator} label="RSS Calculator" color="text-amber-400" bg="bg-amber-500/10" />
                         <ToolCard href="/dashboard/tools/formation-builder" icon={Swords} label="Formations" color="text-indigo-400" bg="bg-indigo-500/10" />
+                        <ToolCard href="/dashboard/tools/player-lookup" icon={Search} label="Player Lookup" color="text-cyan-400" bg="bg-cyan-500/10" />
+                        <ToolCard href="/dashboard/tools/gift-codes" icon={Gift} label="Gift Codes" color="text-purple-400" bg="bg-purple-500/10" />
+                        <ToolCard href="/dashboard/tools/event-schedule" icon={CalendarClock} label="Event Schedule" color="text-teal-400" bg="bg-teal-500/10" />
+                        <ToolCard href="/dashboard/tools/ministers" icon={Crown} label="Ministers" color="text-yellow-400" bg="bg-yellow-500/10" />
+                        <ToolCard href="/dashboard/tools/attendance" icon={ClipboardCheck} label="Attendance" color="text-sky-400" bg="bg-sky-500/10" />
+                        <ToolCard href="/dashboard/tools/activity-tracker" icon={Activity} label="Activity" color="text-orange-400" bg="bg-orange-500/10" />
                     </div>
 
                     {/* Intel Feed */}
