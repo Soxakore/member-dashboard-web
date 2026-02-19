@@ -267,3 +267,110 @@ export function getUpcomingEvents(fromDate?: Date): Array<{ event: EventConfig; 
   events.sort((a, b) => a.nextDate.getTime() - b.nextDate.getTime());
   return events;
 }
+
+/**
+ * Calculate next occurrence with a specific time slot (for admin-configured events)
+ * Falls back to calculateNextOccurrence if no time given.
+ */
+export function calculateNextOccurrenceWithTime(
+  eventType: string,
+  selectedTimeUTC: string,
+  fromDate?: Date
+): Date | null {
+  const config = EVENT_CONFIG[eventType];
+  if (!config) return null;
+
+  const now = fromDate || new Date();
+  const [hours, minutes] = selectedTimeUTC.split(":").map(Number);
+
+  // Daily reset with specific time
+  if (config.scheduleType === "daily") {
+    const next = new Date(now);
+    next.setUTCHours(hours, minutes, 0, 0);
+    if (next.getTime() <= now.getTime()) {
+      next.setUTCDate(next.getUTCDate() + 1);
+    }
+    return next;
+  }
+
+  // Weekly (Fortress Battle - every Friday)
+  if (config.scheduleType === "global_weekly") {
+    const next = new Date(now);
+    const dayOfWeek = next.getUTCDay();
+    let daysUntilFriday = (5 - dayOfWeek + 7) % 7;
+    next.setUTCDate(next.getUTCDate() + daysUntilFriday);
+    next.setUTCHours(hours, minutes, 0, 0);
+    // If it's Friday but the time already passed, go to next Friday
+    if (next.getTime() <= now.getTime()) {
+      next.setUTCDate(next.getUTCDate() + 7);
+    }
+    return next;
+  }
+
+  // Cycle-based events
+  if (!config.referenceDate) return null;
+
+  const reference = new Date(config.referenceDate + "T00:00:00Z");
+  const cycleWeeks = config.cycleWeeks || 4;
+  const cycleDays = cycleWeeks * 7;
+
+  const diffMs = now.getTime() - reference.getTime();
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+  if (diffDays < 0) {
+    const result = new Date(reference);
+    result.setUTCHours(hours, minutes, 0, 0);
+    return result;
+  }
+
+  const cyclesPassed = Math.floor(diffDays / cycleDays);
+  let next = new Date(reference.getTime() + cyclesPassed * cycleDays * 24 * 60 * 60 * 1000);
+  next.setUTCHours(hours, minutes, 0, 0);
+
+  if (next.getTime() <= now.getTime()) {
+    next = new Date(next.getTime() + cycleDays * 24 * 60 * 60 * 1000);
+    next.setUTCHours(hours, minutes, 0, 0);
+  }
+
+  return next;
+}
+
+const DAY_MAP: Record<string, number> = {
+  Sunday: 0,
+  Monday: 1,
+  Tuesday: 2,
+  Wednesday: 3,
+  Thursday: 4,
+  Friday: 5,
+  Saturday: 6,
+};
+
+/**
+ * Calculate next Bear Trap occurrence based on admin-configured days + time
+ */
+export function calculateBearTrapNext(
+  selectedTimeUTC: string,
+  customDays: string[],
+  fromDate?: Date
+): Date | null {
+  if (!customDays || customDays.length === 0 || !selectedTimeUTC) return null;
+
+  const now = fromDate || new Date();
+  const [hours, minutes] = selectedTimeUTC.split(":").map(Number);
+  const targetDays = customDays.map((d) => DAY_MAP[d]).filter((d) => d !== undefined);
+
+  if (targetDays.length === 0) return null;
+
+  // Check today and each subsequent day for up to 7 days
+  for (let offset = 0; offset < 8; offset++) {
+    const candidate = new Date(now);
+    candidate.setUTCDate(candidate.getUTCDate() + offset);
+    candidate.setUTCHours(hours, minutes, 0, 0);
+
+    if (targetDays.includes(candidate.getUTCDay()) && candidate.getTime() > now.getTime()) {
+      return candidate;
+    }
+  }
+
+  return null;
+}

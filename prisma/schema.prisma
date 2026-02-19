@@ -29,6 +29,7 @@ model User {
   playerFids       PlayerFID[]
   ministerAssignments MinisterSlot[] @relation("MinisterAssigner")
   attendanceSessions  AttendanceSession[] @relation("AttendanceCreator")
+  eventConfigs        AllianceEventConfig[] @relation("EventConfigUpdater")
 }
 
 model Event {
@@ -189,4 +190,15 @@ model PlayerChangeLog {
 
   playerFidId String
   playerFid   PlayerFID @relation(fields: [playerFidId], references: [id])
+}
+
+model AllianceEventConfig {
+  id           String   @id @default(cuid())
+  eventName    String   @unique
+  selectedTime String
+  customDays   String?
+  updatedAt    DateTime @updatedAt
+
+  updatedById  String
+  updatedBy    User     @relation("EventConfigUpdater", fields: [updatedById], references: [id])
 }
